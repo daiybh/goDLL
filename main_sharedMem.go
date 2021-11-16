@@ -7,7 +7,7 @@ import (
 	"unsafe"
 )
 
-type godll struct {
+type SharedMemDLL struct {
 	dllHandle           *syscall.DLL
 	proc_openProvider   *syscall.Proc //__declspec(dllexport) tagProviderHandle* openProvider(int providerID);
 	proc_popFrame       *syscall.Proc //__declspec(dllexport) Frame popFrame(tagProviderHandle* _ProviderHandle);
@@ -18,12 +18,7 @@ type godll struct {
 	name        int
 }
 
-const sizeOfUintPtr = unsafe.Sizeof(uintptr(0))
-
-func uintptrToBytes(u *uintptr) []byte {
-	return (*[sizeOfUintPtr]byte)(unsafe.Pointer(u))[:]
-}
-func (d *godll) Init() {
+func (d *SharedMemDLL) Init() {
 	d.dllHandle = syscall.MustLoadDLL("SharedMemCoreLibDLL.dll")
 
 	d.proc_openProvider = d.dllHandle.MustFindProc("openProvider")
@@ -32,41 +27,44 @@ func (d *godll) Init() {
 	d.proc_pushAudioFrame = d.dllHandle.MustFindProc("pushAudioFrame")
 
 }
-func (d *godll) Open(cam int) {
+func (d *SharedMemDLL) Open(cam int) {
 	d.sharememObj, _, _ = d.proc_openProvider.Call(uintptr(cam))
 	fmt.Println("result is:", d.sharememObj)
 }
 
-func (d *godll) PushVideo() {
-	bufByte := make([]byte, 1920*1080*2)
+func (d *SharedMemDLL) PushVideo(bufByte []byte, size int) {
 	buffer := unsafe.Pointer(&bufByte[0])
 
-	ret, _, _ := d.proc_pushVideoFrame.Call(d.sharememObj, uintptr(buffer), 1920*1080*2)
+	ret, _, _ := d.proc_pushVideoFrame.Call(d.sharememObj, uintptr(buffer), uintptr(size))
 	fmt.Println("result is:", ret)
 }
 
-func (d *godll) pushAudioFrame() {
+func (d *SharedMemDLL) pushAudioFrame(bufByte []byte, size int) {
 
-	bufByte := make([]byte, 1920*1080*2)
 	buffer := unsafe.Pointer(&bufByte[0])
 
-	ret, _, _ := d.proc_pushAudioFrame.Call(d.sharememObj, uintptr(buffer), 1920)
+	ret, _, _ := d.proc_pushAudioFrame.Call(d.sharememObj, uintptr(buffer), uintptr(size))
 	fmt.Println("result is:", ret)
 }
 
-func (d *godll) Close(cam int) {
+func (d *SharedMemDLL) Close(cam int) {
 }
 
 func main() {
 
-	var mydll godll
+	var mydll SharedMemDLL
 	mydll.Init()
 	mydll.Open(1)
-	
+
 	loop := 0
+
+	audiobufByte := make([]byte, 1920*4*16)
+	videobufByte := make([]byte, 1920*1080*2)
 	for {
 		fmt.Println("", loop)
 		loop += 1
 		time.Sleep(time.Duration(1) * time.Second)
+		mydll.pushAudioFrame(audiobufByte, 1920*4*16)
+		mydll.PushVideo(videobufByte, 1920*1080*2)
 	}
 }
