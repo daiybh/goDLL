@@ -32,14 +32,12 @@ else()
 endif()
 
 SET (LIBHELLO_SRC hello.cpp)
-ADD_LIBRARY (hello SHARED ${LIBHELLO_SRC})
-ADD_LIBRARY (hello_static STATIC ${LIBHELLO_SRC})
- #add_executable(WU_Charging20211022 	"main.cpp"  "hello.cpp" "hello.h")
+ADD_LIBRARY (helloDLL SHARED ${LIBHELLO_SRC})
+#ADD_LIBRARY (hello_static STATIC ${LIBHELLO_SRC})
 
-
-	 
+add_subdirectory(test)
 #add_executable(AAA 	"test.c" "pkcs7_padding.c" "AES.c")
-INSTALL (TARGETS hello hello_static LIBRARY DESTINATION lib
+INSTALL (TARGETS helloDLL  LIBRARY DESTINATION lib
 RUNTIME DESTINATION bin
 ARCHIVE DESTINATION lib)
 
