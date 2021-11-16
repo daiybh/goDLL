@@ -20,15 +20,29 @@ int push(char* buf, int size)
 class cxxFoo {
 public:
 	int a;
-	uint8_t m_buffer[1024];
-	cxxFoo(int _a) :a(_a) {};
+
+	uint8_t *m_pbuffer[10];
+	int m_size = 0;
+	int m_pos = 0;
+	cxxFoo(int _a) :a(_a) {
+		for (int i = 0; i < 10; i++)
+			m_pbuffer[i] = new uint8_t[10];
+	};
 	~cxxFoo() {};
 	void Bar();
 	uint8_t* popFrame() {
-		return m_buffer;
+		return m_pbuffer[m_pos++%10];
 	}
 	void pushFrame(uint8_t*frame,int size) {
+		m_size = size;
 
+		printf("\naaaaaaaa--%p-%d\n",frame,size);
+		for (int i = 0; i < 10; i++)
+		{
+			printf("%x ", frame[i]);
+		}
+		printf("\n");
+		
 	}
 };
 
@@ -45,9 +59,10 @@ Foo FooInit()
 	return (void*)ret;
 }
 
-void pushFrame(Foo, Frame)
+void pushFrame(Foo f, Frame frame,int size)
 {
-
+	cxxFoo* foo = (cxxFoo*)f;
+	foo->pushFrame((uint8_t*)frame, size);
 }
 
 void FooFree(Foo f)

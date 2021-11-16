@@ -22,7 +22,7 @@ extern "C" {
 	__declspec(dllexport) Foo FooInit(void);
 	__declspec(dllexport) void FooBar(Foo);
 	__declspec(dllexport) Frame popFrame(Foo);
-	__declspec(dllexport) void pushFrame(Foo,Frame);
+	__declspec(dllexport) void pushFrame(Foo , Frame , int );
 	__declspec(dllexport) void FooFree(Foo);
 #ifdef __cplusplus
 }
