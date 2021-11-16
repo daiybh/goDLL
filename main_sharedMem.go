@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os/exec"
 	"syscall"
 	"time"
 	"unsafe"
@@ -52,6 +53,11 @@ func (d *SharedMemDLL) Close(cam int) {
 
 func main() {
 
+	cmd1 := exec.Command("./testBin/testHost.exe")
+	cmd1.Start()
+
+	exec.Command("./testBin/testConsumer.exe").Start()
+	exec.Command("./testBin/index.html").Start()
 	var mydll SharedMemDLL
 	mydll.Init()
 	mydll.Open(1)
