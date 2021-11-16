@@ -55,9 +55,12 @@ func main() {
 
 	cmd1 := exec.Command("./testBin/testHost.exe")
 	cmd1.Start()
+	time.Sleep(time.Second * 1)
 
 	exec.Command("./testBin/testConsumer.exe").Start()
+	time.Sleep(time.Second * 1)
 	exec.Command("./testBin/index.html").Start()
+	time.Sleep(time.Second * 1)
 	var mydll SharedMemDLL
 	mydll.Init()
 	mydll.Open(1)
