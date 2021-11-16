@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>SharedMemory DebugScreen</title>
+
+    <script language="javascript" type="text/javascript">
+
+        var wsUri = "ws://127.0.0.1:27160/";
+        var lastFreeFrameAtStart = 0;
+
+        function registerModule() {
+            websocket.send("{\"cmd\":\"register\",\"modulename\":\"sharedMemoryInfo\"}\0");
+        }
+
+        function init() {
+            initWebSocket();
+        }
+
+        function initWebSocket() {
+            websocket = new WebSocket(wsUri);
+            websocket.onopen = function(evt) { onOpen(evt) };
+            websocket.onclose = function(evt) { onClose(evt) };
+            websocket.onmessage = function(evt) { onMessage(evt) };
+            websocket.onerror = function(evt) { onError(evt) };
+        }
+
+        function onOpen(evt) {
+            var pre = document.getElementById("connectionStatus");
+            pre.style = "color:green;font-weight:bold;"
+            pre.innerHTML = "Connected";
+            registerModule();
+        }
+
+        function onClose(evt) {
+            var pre = document.getElementById("connectionStatus");
+            pre.style = "color:red;font-weight:bold;"
+            pre.innerHTML = "Disconected";
+        }
+
+        function onMessage(evt) {
+            const { modulename, data } = JSON.parse(evt.data)
+
+            data.forEach(item => {
+                const { key, value } = item
+                var pre = document.getElementById(key);
+                if (pre)
+                    pre.innerHTML = value;
+                else
+                    console.error("no this key", key, value);
+                if (key == 'freeFrameAtStart') {
+                    if (lastFreeFrameAtStart != value) {
+                        lastFreeFrameAtStart = value;
+                        rebuild_frame_lock_table();
+                    }
+                }
+            })
+
+        }
+
+        function onError(evt) {
+        }
+
+        window.addEventListener("load", init, false);
+    </script>
+
+    <style>
+        table {
+            font-family: arial, sans-serif;
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        td, th {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+        }
+
+        tr:nth-child(even) { background-color: #dddddd; }
+
+        .collapsible {
+            background-color: #0094ff;
+            color: white;
+            cursor: pointer;
+            padding: 18px 0;
+            width: 80%;
+            border: none;
+            text-align: center;
+            outline: none;
+            font-size: 160%;
+        }
+
+        .active, .collapsible:hover { background-color: #555; }
+
+        .content {
+            padding: 0 18px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.2s ease-out;
+        }
+
+        .FloatDIV {
+            float: left;
+            width: 33%;
+        }
+    </style>
+</head>
+
+<body>
+
+<table>
+    <tr>
+        <th style="color: white; text-align: center; background-color: #1f1fc1; font-size: 160%;">Shared Memory Debug Screen</th>
+    </tr>
+</table>
+
+<p></p>
+
+<table>
+    <tr>
+        <th width="50%">Key</th>
+        <th width="50%">Value</th>
+    </tr>
+    <tr>
+        <td>Connection Status</td>
+        <td id="connectionStatus">Disconnected</td>
+    </tr>
+    <tr>
+        <td>Version</td>
+        <td id="version">0.0.0</td>
+    </tr>
+    <tr>
+        <td>Up time</td>
+        <td id="Up Time">0 second</td>
+    </tr>
+    <tr>
+        <td>Loop Count</td>
+        <td id="loopcount">0</td>
+    </tr>
+    <tr>
+        <td>Total Size</td>
+        <td id="totalSize">0</td>
+    </tr>
+    <tr>
+        <td>Nb Video Free Frames</td>
+        <td id="freeVideoFrame">0</td>
+    </tr>
+    <tr>
+        <td>Nb Audio Free Frames</td>
+        <td id="freeAudioFrame">0</td>
+    </tr>
+    <tr>
+        <td>Nb Free Frames at Startup</td>
+        <td id="freeFrameAtStart">0</td>
+    </tr>
+</table>
+
+<p></p>
+<div>
+<div class="FloatDIV">
+    <button type="button" class="collapsible">Provider FIFO</button>
+    <div class="content">
+        <table id="providerFIFO">
+            <tr>
+                <th width="20%"></th>
+                <th width="5%">Push</th>
+                <th width="5%">Pull</th>
+                <th width="5%">Requested Size</th>
+                <th width="5%">Current Size</th>
+                <th width="10%">TimeCode</th>
+                <th width="50%">TimeIDS</th>
+            </tr>
+        </table>
+    </div>
+</div>
+<div class="FloatDIV">
+    <button type="button" class="collapsible">Frame Lock</button>
+    <div class="content">
+        <p></p>
+
+        <table id="frame_lock_table">
+            <tr>
+                <th width="20%">ID</th>
+                <th width="20%">Provider Free FIFO</th>
+                <th width="20%">Provider</th>
+                <th width="20%">camera Fill FIFO</th>
+                <th width="20%">Consumer</th>
+            </tr>
+        </table>
+    </div>
+</div>
+<div class="FloatDIV">
+<button type="button" class="collapsible">Consumer FIFO</button>
+<div class="content">
+<p></p>
+<table id="ConsumerFIFO">
+<tr>
+    <th width="20%"></th>
+    <th width="20%">Content</th>
+    <th width="5%">Push</th>
+    <th width="5%">Pull</th>
+    <th width="5%">Requested Size</th>
+    <th width="5%">Current Size</th>
+    <th width="10%">TimeCode</th>
+    <th width="30%">TimeIDS</th>
+</tr>
+<tr>
+    <th>Live Cam 0</th>
+    <td>Frame for Cam 0</td>
+    <td id="C0_FF_Push">-</td>
+    <td id="C0_FF_Pull">-</td>
+    <td id="C0_FF_RS">-</td>
+    <td id="C0_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder Cam 0</th>
+    <td>Cam 0 in Train</td>
+    <td id="C1_FF_Push">-</td>
+    <td id="C1_FF_Pull">-</td>
+    <td id="C1_FF_RS">-</td>
+    <td id="C1_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam 1</th>
+    <td>Frame for Cam 1</td>
+    <td id="C2_FF_Push">-</td>
+    <td id="C2_FF_Pull">-</td>
+    <td id="C2_FF_RS">-</td>
+    <td id="C2_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder Cam 1</th>
+    <td>Cam 1 in Train</td>
+    <td id="C3_FF_Push">-</td>
+    <td id="C3_FF_Pull">-</td>
+    <td id="C3_FF_RS">-</td>
+    <td id="C3_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam 2</th>
+    <td>Frame for Cam 2</td>
+    <td id="C4_FF_Push">-</td>
+    <td id="C4_FF_Pull">-</td>
+    <td id="C4_FF_RS">-</td>
+    <td id="C4_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder Cam 2</th>
+    <td>Cam 2 in Train</td>
+    <td id="C5_FF_Push">-</td>
+    <td id="C5_FF_Pull">-</td>
+    <td id="C5_FF_RS">-</td>
+    <td id="C5_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam 3</th>
+    <td>Frame for Cam 3</td>
+    <td id="C6_FF_Push">-</td>
+    <td id="C6_FF_Pull">-</td>
+    <td id="C6_FF_RS">-</td>
+    <td id="C6_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder Cam 3</th>
+    <td>Cam 3 in Train</td>
+    <td id="C7_FF_Push">-</td>
+    <td id="C7_FF_Pull">-</td>
+    <td id="C7_FF_RS">-</td>
+    <td id="C7_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam 4</th>
+    <td>Frame for Cam 4</td>
+    <td id="C8_FF_Push">-</td>
+    <td id="C8_FF_Pull">-</td>
+    <td id="C8_FF_RS">-</td>
+    <td id="C8_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder Cam 4</th>
+    <td>Cam 4 in Train</td>
+    <td id="C9_FF_Push">-</td>
+    <td id="C9_FF_Pull">-</td>
+    <td id="C9_FF_RS">-</td>
+    <td id="C9_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam 5</th>
+    <td>Frame for Cam 5</td>
+    <td id="C10_FF_Push">-</td>
+    <td id="C10_FF_Pull">-</td>
+    <td id="C10_FF_RS">-</td>
+    <td id="C10_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder Cam 5</th>
+    <td>Cam 5 in Train</td>
+    <td id="C11_FF_Push">-</td>
+    <td id="C11_FF_Pull">-</td>
+    <td id="C11_FF_RS">-</td>
+    <td id="C11_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam 6</th>
+    <td>Frame for Cam 6</td>
+    <td id="C12_FF_Push">-</td>
+    <td id="C12_FF_Pull">-</td>
+    <td id="C12_FF_RS">-</td>
+    <td id="C12_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder Cam 6</th>
+    <td>Cam 6 in Train</td>
+    <td id="C13_FF_Push">-</td>
+    <td id="C13_FF_Pull">-</td>
+    <td id="C13_FF_RS">-</td>
+    <td id="C13_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam 7</th>
+    <td>Frame for Cam 7</td>
+    <td id="C14_FF_Push">-</td>
+    <td id="C14_FF_Pull">-</td>
+    <td id="C14_FF_RS">-</td>
+    <td id="C14_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder Cam 7</th>
+    <td>Cam 7 in Train</td>
+    <td id="C15_FF_Push">-</td>
+    <td id="C15_FF_Pull">-</td>
+    <td id="C15_FF_RS">-</td>
+    <td id="C15_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam 8</th>
+    <td>Frame for Cam 8</td>
+    <td id="C16_FF_Push">-</td>
+    <td id="C16_FF_Pull">-</td>
+    <td id="C16_FF_RS">-</td>
+    <td id="C16_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder Cam 8</th>
+    <td>Cam 8 in Train</td>
+    <td id="C17_FF_Push">-</td>
+    <td id="C17_FF_Pull">-</td>
+    <td id="C17_FF_RS">-</td>
+    <td id="C17_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam 9</th>
+    <td>Frame for Cam 9</td>
+    <td id="C18_FF_Push">-</td>
+    <td id="C18_FF_Pull">-</td>
+    <td id="C18_FF_RS">-</td>
+    <td id="C18_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder Cam 9</th>
+    <td>Cam 9 in Train</td>
+    <td id="C19_FF_Push">-</td>
+    <td id="C19_FF_Pull">-</td>
+    <td id="C19_FF_RS">-</td>
+    <td id="C19_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam 10</th>
+    <td>Frame for Cam 10</td>
+    <td id="C20_FF_Push">-</td>
+    <td id="C20_FF_Pull">-</td>
+    <td id="C20_FF_RS">-</td>
+    <td id="C20_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder Cam 10</th>
+    <td>Cam 10 in Train</td>
+    <td id="C21_FF_Push">-</td>
+    <td id="C21_FF_Pull">-</td>
+    <td id="C21_FF_RS">-</td>
+    <td id="C21_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam 11</th>
+    <td>Frame for Cam 11</td>
+    <td id="C22_FF_Push">-</td>
+    <td id="C22_FF_Pull">-</td>
+    <td id="C22_FF_RS">-</td>
+    <td id="C22_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder Cam 11</th>
+    <td>Cam 11 in Train</td>
+    <td id="C23_FF_Push">-</td>
+    <td id="C23_FF_Pull">-</td>
+    <td id="C23_FF_RS">-</td>
+    <td id="C23_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam 12</th>
+    <td>Frame for Cam 12</td>
+    <td id="C24_FF_Push">-</td>
+    <td id="C24_FF_Pull">-</td>
+    <td id="C24_FF_RS">-</td>
+    <td id="C24_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder Cam 12</th>
+    <td>Cam 12 in Train</td>
+    <td id="C25_FF_Push">-</td>
+    <td id="C25_FF_Pull">-</td>
+    <td id="C25_FF_RS">-</td>
+    <td id="C25_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam 13</th>
+    <td>Frame for Cam 13</td>
+    <td id="C26_FF_Push">-</td>
+    <td id="C26_FF_Pull">-</td>
+    <td id="C26_FF_RS">-</td>
+    <td id="C26_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder Cam 13</th>
+    <td>Cam 13 in Train</td>
+    <td id="C27_FF_Push">-</td>
+    <td id="C27_FF_Pull">-</td>
+    <td id="C27_FF_RS">-</td>
+    <td id="C27_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam 14</th>
+    <td>Frame for Cam 14</td>
+    <td id="C28_FF_Push">-</td>
+    <td id="C28_FF_Pull">-</td>
+    <td id="C28_FF_RS">-</td>
+    <td id="C28_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder Cam 14</th>
+    <td>Cam 14 in Train</td>
+    <td id="C29_FF_Push">-</td>
+    <td id="C29_FF_Pull">-</td>
+    <td id="C29_FF_RS">-</td>
+    <td id="C29_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam 15</th>
+    <td>Frame for Cam 15</td>
+    <td id="C30_FF_Push">-</td>
+    <td id="C30_FF_Pull">-</td>
+    <td id="C30_FF_RS">-</td>
+    <td id="C30_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder Cam 15</th>
+    <td>Cam 15 in Train</td>
+    <td id="C31_FF_Push">-</td>
+    <td id="C31_FF_Pull">-</td>
+    <td id="C31_FF_RS">-</td>
+    <td id="C31_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam PGM1 Clean</th>
+    <td>Frame for PGM1 Clean</td>
+    <td id="C32_FF_Push">-</td>
+    <td id="C32_FF_Pull">-</td>
+    <td id="C32_FF_RS">-</td>
+    <td id="C32_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder PGM1 Clean</th>
+    <td>PGM1 Clean in Train</td>
+    <td id="C33_FF_Push">-</td>
+    <td id="C33_FF_Pull">-</td>
+    <td id="C33_FF_RS">-</td>
+    <td id="C33_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam PGM1 Dirty</th>
+    <td>Frame for PGM1 Dirty</td>
+    <td id="C34_FF_Push">-</td>
+    <td id="C34_FF_Pull">-</td>
+    <td id="C34_FF_RS">-</td>
+    <td id="C34_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder PGM1 Dirty</th>
+    <td>PGM1 Dirty in Train</td>
+    <td id="C35_FF_Push">-</td>
+    <td id="C35_FF_Pull">-</td>
+    <td id="C35_FF_RS">-</td>
+    <td id="C35_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Live Cam Import</th>
+    <td>Frame for Import</td>
+    <td id="C36_FF_Push">-</td>
+    <td id="C36_FF_Pull">-</td>
+    <td id="C36_FF_RS">-</td>
+    <td id="C36_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Encoder Import</th>
+    <td>Import in Train</td>
+    <td id="C37_FF_Push">-</td>
+    <td id="C37_FF_Pull">-</td>
+    <td id="C37_FF_RS">-</td>
+    <td id="C37_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Output channel 0</th>
+    <td>
+        <i>Any content</i>
+    </td>
+    <td id="C38_FF_Push">-</td>
+    <td id="C38_FF_Pull">-</td>
+    <td id="C38_FF_RS">-</td>
+    <td id="C38_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Output channel 1</th>
+    <td>
+        <i>Any content</i>
+    </td>
+    <td id="C39_FF_Push">-</td>
+    <td id="C39_FF_Pull">-</td>
+    <td id="C39_FF_RS">-</td>
+    <td id="C39_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Output channel 2</th>
+    <td>
+        <i>Any content</i>
+    </td>
+    <td id="C40_FF_Push">-</td>
+    <td id="C40_FF_Pull">-</td>
+    <td id="C40_FF_RS">-</td>
+    <td id="C40_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Output channel 3</th>
+    <td>
+        <i>Any content</i>
+    </td>
+    <td id="C41_FF_Push">-</td>
+    <td id="C41_FF_Pull">-</td>
+    <td id="C41_FF_RS">-</td>
+    <td id="C41_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Output channel 4</th>
+    <td>
+        <i>Any content</i>
+    </td>
+    <td id="C42_FF_Push">-</td>
+    <td id="C42_FF_Pull">-</td>
+    <td id="C42_FF_RS">-</td>
+    <td id="C42_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Output channel 5</th>
+    <td>
+        <i>Any content</i>
+    </td>
+    <td id="C43_FF_Push">-</td>
+    <td id="C43_FF_Pull">-</td>
+    <td id="C43_FF_RS">-</td>
+    <td id="C43_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Output channel 6</th>
+    <td>
+        <i>Any content</i>
+    </td>
+    <td id="C44_FF_Push">-</td>
+    <td id="C44_FF_Pull">-</td>
+    <td id="C44_FF_RS">-</td>
+    <td id="C44_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Output channel 7</th>
+    <td>
+        <i>Any content</i>
+    </td>
+    <td id="C45_FF_Push">-</td>
+    <td id="C45_FF_Pull">-</td>
+    <td id="C45_FF_RS">-</td>
+    <td id="C45_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Output channel 8</th>
+    <td>
+        <i>Any content</i>
+    </td>
+    <td id="C46_FF_Push">-</td>
+    <td id="C46_FF_Pull">-</td>
+    <td id="C46_FF_RS">-</td>
+    <td id="C46_FF_Size">-</td>
+</tr>
+<tr>
+    <th>Output channel 9</th>
+    <td>
+        <i>Any content</i>
+    </td>
+    <td id="C47_FF_Push">-</td>
+    <td id="C47_FF_Pull">-</td>
+    <td id="C47_FF_RS">-</td>
+    <td id="C47_FF_Size">-</td>
+</tr>
+</table>
+</div>
+</div>
+<p></p>
+</div>
+<script>
+    var coll = document.getElementsByClassName("collapsible");
+    var i;
+
+    for (i = 0; i < coll.length; i++) {
+        coll[i].addEventListener("click",
+            function() {
+                this.classList.toggle("active");
+                var content = this.nextElementSibling;
+                if (content.style.maxHeight) {
+                    content.style.maxHeight = null;
+                } else {
+                    content.style.maxHeight = content.scrollHeight + "px";
+                }
+            });
+    }
+    {
+        //            <tr>
+        //                <th>Live Cam 0</th>
+        //                <td>Frame for Cam 0</td>
+        //                <td id="C0_FF_Push">-</td>
+        //                <td id="C0_FF_Pull">-</td>
+        //                <td id="C0_FF_RS">-</td>
+        //                <td id="C0_FF_Size">-</td>
+        //</tr>
+        // Frame for Cam 0 Cam 15 in Train
+        var table = document.getElementById("ConsumerFIFO");
+        var consumerTitleArr = ['PGM1 clean', 'PGM1 Dirty', 'Import'];
+
+        for (i = 16; i >= 0; i--) {
+            consumerTitleArr.unshift(i.toString());
+        }
+        var titleArr = [];
+        var contentArr = [];
+        consumerTitleArr.forEach(function(item) {
+            titleArr.push("Live Cam " + item);
+            contentArr.push("Frame for Cam " + item);
+        });
+        consumerTitleArr.forEach(function(item) {
+            titleArr.push("Encoder Cam " + item);
+            contentArr.push("Cam " + item + " in Train ");
+        });
+
+
+        for (i = table.rows.length - 1; i > 0; i--) {
+            table.deleteRow(i);
+        }
+        pos = 1;
+        for (i = 0; i < titleArr.length; i++) {
+            {
+                var row = table.insertRow(pos++);
+                row.insertCell(0).outerHTML = "<th>V" + titleArr[i] + "</th>";
+                row.insertCell(1).innerHTML = contentArr[i];
+                row.insertCell(2).id = "V_C" + i + "_FF_Push";
+                row.insertCell(3).id = "V_C" + i + "_FF_Pull";
+                row.insertCell(4).id = "V_C" + i + "_FF_RS";
+                row.insertCell(5).id = "V_C" + i + "_FF_Size";
+                row.insertCell(6).id = "V_C" + i + "_FF_lastTC";
+                row.insertCell(7).id = "V_C" + i + "_FF_lastTimeidStr";
+            }
+            {
+                var row = table.insertRow(pos++);
+                row.insertCell(0).outerHTML = "<th>A" + titleArr[i] + "</th>";
+                row.insertCell(1).innerHTML = contentArr[i];
+                row.insertCell(2).id = "A_C" + i + "_FF_Push";
+                row.insertCell(3).id = "A_C" + i + "_FF_Pull";
+                row.insertCell(4).id = "A_C" + i + "_FF_RS";
+                row.insertCell(5).id = "A_C" + i + "_FF_Size";
+                row.insertCell(6).id = "A_C" + i + "_FF_lastTC";
+                row.insertCell(7).id = "A_C" + i + "_FF_lastTimeidStr";
+            }
+        }
+    }
+    {
+        var table = document.getElementById("providerFIFO");
+        var providerTitleArr = ['Import', 'Playout Builder', 'ASIO Mixer'];
+        for (i = 16; i >= 0; i--) {
+            providerTitleArr.unshift(i.toString());
+        }
+        pos = 1
+        for (i = 0; i < providerTitleArr.length; i++) {
+
+            {
+                var row = table.insertRow(pos++);
+                row.insertCell(0).outerHTML = "<th>V" + providerTitleArr[i] + "</th>";
+
+                row.insertCell(1).id = "V_P" + i + "_FF_Push";
+                row.insertCell(2).id = "V_P" + i + "_FF_Pull";
+                row.insertCell(3).id = "V_P" + i + "_FF_RS";
+                row.insertCell(4).id = "V_P" + i + "_FF_Size";
+                row.insertCell(5).id = "V_P" + i + "_FF_lastTC";
+                row.insertCell(6).id = "V_P" + i + "_FF_lastTimeidStr";
+            }
+            {
+                var row = table.insertRow(pos++);
+                row.insertCell(0).outerHTML = "<th>A" + providerTitleArr[i] + "</th>";
+
+                row.insertCell(1).id = "A_P" + i + "_FF_Push";
+                row.insertCell(2).id = "A_P" + i + "_FF_Pull";
+                row.insertCell(3).id = "A_P" + i + "_FF_RS";
+                row.insertCell(4).id = "A_P" + i + "_FF_Size";
+                row.insertCell(5).id = "A_P" + i + "_FF_lastTC";
+                row.insertCell(6).id = "A_P" + i + "_FF_lastTimeidStr";
+            }
+        }
+    }
+
+    function rebuild_frame_lock_table() {
+        var table = document.getElementById("frame_lock_table");
+        for (i = table.rows.length - 1; i > 0; i--) {
+            table.deleteRow(i);
+        }
+        pos = 1
+        for (i = 0; i < lastFreeFrameAtStart; i++) {
+            {
+                var row = table.insertRow(pos++);
+                row.insertCell(0).outerHTML = "<th>V" + i + "</th>";
+                row.insertCell(1).id = "V_F" + i + "_P_FIFO";
+                row.insertCell(2).id = "V_F" + i + "_P";
+                row.insertCell(3).id = "V_F" + i + "_F_FIFO";
+                row.insertCell(4).id = "V_F" + i + "_C";
+            }
+            {
+                var row = table.insertRow(pos++);
+                row.insertCell(0).outerHTML = "<th>A" + i + "</th>";
+                row.insertCell(1).id = "A_F" + i + "_P_FIFO";
+                row.insertCell(2).id = "A_F" + i + "_P";
+                row.insertCell(3).id = "A_F" + i + "_F_FIFO";
+                row.insertCell(4).id = "A_F" + i + "_C";
+            }
+        }
+    }
+</script>
+</body>
+</html>
